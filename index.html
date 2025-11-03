@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PS4 WebKit Exploit</title>
+    <title>PS4/PS5 WebKit Exploit</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -73,8 +73,8 @@
 </head>
 <body>
     <div class="container">
-        <h2>PS4/PS5 Exploit 13.00/12.00</h2>
-        <h3>By JJ Roberts</h3>
+        <h2>PS4/PS5 Exploit Framework</h2>
+        <h3>NetControl UAF Exploit</h3>
         <div id="status">Initializing...</div>
         
         <button id="runButton" onclick="runExploit()" disabled>Run Exploit</button>
@@ -87,60 +87,52 @@
         </div>
     </div>
 
-    <!-- Include the exploit script -->
-    <script src="loader.js"></script>
+    <!-- Load in correct order -->
+    <script src="api.js"></script>
+    <script src="kernel-api.js"></script>
+    <script src="exploit.js"></script>
     
     <script>
-        // Global variables
         let exploitInstance = null;
         let logEntries = [];
         
-        // DOM elements
         const statusElement = document.getElementById('status');
         const logOutput = document.getElementById('logOutput');
         const runButton = document.getElementById('runButton');
         const resultDiv = document.getElementById('result');
         const resultMessage = document.getElementById('resultMessage');
         
-        // Custom logging function
         function log(message, type = '') {
             const timestamp = new Date().toISOString().substr(11, 12);
             const logEntry = `[${timestamp}] ${message}`;
             
-            // Add to log array
             logEntries.push({message: logEntry, type: type});
             
-            // Update UI
             const logDiv = document.createElement('div');
             logDiv.className = type;
             logDiv.textContent = logEntry;
             logOutput.appendChild(logDiv);
             
-            // Scroll to bottom
             logOutput.scrollTop = logOutput.scrollHeight;
             
-            // Also show in status for important messages
             if (type === 'error' || type === 'success') {
                 statusElement.textContent = message;
                 statusElement.className = type;
             }
         }
         
-        // Override console.log to capture logs
         const originalLog = console.log;
         console.log = function(...args) {
             log(args.join(' '), '');
             originalLog.apply(console, args);
         };
         
-        // Override console.error to capture errors
         const originalError = console.error;
         console.error = function(...args) {
             log(args.join(' '), 'error');
             originalError.apply(console, args);
         };
         
-        // Enhanced exploit runner
         async function runExploit() {
             try {
                 log('Starting exploit...', 'warning');
@@ -148,83 +140,55 @@
                 statusElement.textContent = 'Running exploit...';
                 statusElement.className = 'warning';
                 
-                // Run the actual exploit
-                const success = await new Promise((resolve) => {
-                    setTimeout(() => {
-                        try {
-                            const result = runExploitMain();
-                            resolve(result);
-                        } catch (e) {
-                            console.error('Exploit execution error:', e);
-                            resolve(false);
-                        }
-                    }, 100);
-                });
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                log('Initializing exploit instance...');
+                exploitInstance = new ExploitNetControlImpl();
+                
+                log('Executing exploit trigger...');
+                const success = exploitInstance.trigger();
                 
                 if (success) {
                     log('Exploit completed successfully!', 'success');
-                    showResult('SUCCESS: System has been compromised', 'success');
+                    showResult('SUCCESS: Exploit completed', 'success');
                 } else {
                     log('Exploit failed', 'error');
                     showResult('FAILED: Exploit did not succeed', 'error');
                 }
+                
+                runButton.disabled = false;
             } catch (e) {
                 log(`Critical error: ${e.message}`, 'error');
+                console.error(e);
                 showResult(`ERROR: ${e.message}`, 'error');
+                runButton.disabled = false;
             }
         }
         
-        // Actual exploit execution
-        function runExploitMain() {
-            try {
-                log('Initializing exploit framework...');
-                
-                // Check if required objects exist
-                if (typeof ExploitNetControlImpl === 'undefined') {
-                    throw new Error('ExploitNetControlImpl not found. Make sure loader.js is loaded.');
-                }
-                
-                log('Creating exploit instance...');
-                exploitInstance = new ExploitNetControlImpl();
-                
-                log('Executing exploit chain...');
-                const result = exploitInstance.exploit();
-                
-                return result;
-            } catch (e) {
-                console.error('Exploit failed:', e);
-                return false;
-            }
-        }
-        
-        // Show result message
         function showResult(message, type) {
             resultMessage.textContent = message;
             resultMessage.className = type;
             resultDiv.classList.remove('hidden');
         }
         
-        // Initialize the page
         window.onload = function() {
             log('Page loaded successfully');
             log('Checking environment...');
             
-            // Check if we're on PS4
             const userAgent = navigator.userAgent;
-            if (userAgent.includes('PlayStation 4')) {
-                log('Detected PS4 environment', 'success');
+            if (userAgent.includes('PlayStation')) {
+                log('Detected PlayStation environment', 'success');
             } else {
-                log('Warning: Not running on PS4. Exploit may not work.', 'warning');
+                log('Warning: Not running on PlayStation. Exploit will run in simulation mode.', 'warning');
             }
             
-            // Check if exploit script is loaded
             if (typeof ExploitNetControlImpl !== 'undefined') {
                 log('Exploit framework loaded successfully', 'success');
                 runButton.disabled = false;
                 statusElement.textContent = 'Ready to run exploit';
                 statusElement.className = 'success';
             } else {
-                log('ERROR: Exploit framework not loaded! Check that loader.js is included.', 'error');
+                log('ERROR: Exploit framework not loaded!', 'error');
                 statusElement.textContent = 'Framework loading error';
                 statusElement.className = 'error';
             }
@@ -232,4 +196,3 @@
     </script>
 </body>
 </html>
-
