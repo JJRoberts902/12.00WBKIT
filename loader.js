@@ -76,7 +76,7 @@ function launchExploit() {
 
           this.MAIN_CORE = 11;
 
-          this.LOG_IP = "192.168.1.53";
+          this.LOG_IP = "192.168.0.159";
           this.LOG_PORT = 1337;
 
           this.api = new API();
@@ -883,4 +883,5 @@ function launchExploit() {
           this.log("[+] victimRpipeFile: " + victimRpipeFile.toString(16));
 
           let masterRpipeData = this.kreadSlow64(masterRpipe
+
 
