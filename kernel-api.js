@@ -21,9 +21,23 @@ class KernelAPI {
         this.masterPipeFd[1] = 4;
         this.victimPipeFd[0] = 5;
         this.victimPipeFd[1] = 6;
-        
+        this.kopen_sym = this.api.dlsym(this.api.LIBKERNEL_MODULE_HANDLE, "open");
+    this.kread_sym = this.api.dlsym(this.api.LIBKERNEL_MODULE_HANDLE, "read");
+    this.kclose_sym = this.api.dlsym(this.api.LIBKERNEL_MODULE_HANDLE, "close");
         console.log('[KernelAPI] Initialized');
     }
+
+     kopen(pathBufAddr, flags) {
+    return this.api.call(this.kopen_sym, pathBufAddr, flags);
+  }
+
+  kread(fd, bufAddr, size) {
+    return this.api.call(this.kread_sym, fd, bufAddr, size);
+  }
+
+  kclose(fd) {
+    return this.api.call(this.kclose_sym, fd);
+  }
     
     // Kernel read primitives
     kread8(address) {
@@ -66,4 +80,16 @@ class KernelAPI {
     setAllProc(address) {
         this.allproc = address;
     }
+
+    kwriteKernel(addr, dataUint8Array) {
+    // Chunk data if needed, and use existing kernel write syscall (e.g., writev)
+    const chunkSize = 0x1000; // 4KB chunks
+    for (let i = 0; i < dataUint8Array.length; i += chunkSize) {
+      const chunk = dataUint8Array.subarray(i, i + chunkSize);
+      // Use your existing write call: e.g., this.kwrite64 or a custom method
+      // Here just a stub log for demonstration
+      console.log(`Writing ${chunk.length} bytes to kernel at 0x${(addr + i).toString(16)}`);
+      // Implement actual kernel write syscall here
+    }
 }
+
