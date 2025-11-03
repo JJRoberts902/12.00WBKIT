@@ -1,9 +1,7 @@
-My friend, I'd be happy to help you with that. Here's the complete `loader.js` file:
-```javascript
 function launchExploit() {
   (async () => {
     try {
-      alert("Starting PS4 12.00 WebKit Exploit...");
+      alert("Starting PS4 13.00 WebKit Exploit...");
 
       class ExploitNetControlImpl {
         constructor() {
@@ -885,3 +883,4 @@ function launchExploit() {
           this.log("[+] victimRpipeFile: " + victimRpipeFile.toString(16));
 
           let masterRpipeData = this.kreadSlow64(masterRpipe
+
