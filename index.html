@@ -1,8 +1,22 @@
 <!DOCTYPE html>
 <html>
-  <head><title>PS4 Exploit Page</title></head>
-  <body>
-    <h1>PS4 12.00 WebKit Exploit</h1>
-    <a href="exploit.html">Launch Exploit</a>
-  </body>
+<head>
+    <title>PS4 WebKit Exploit</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h2>Launching Exploit...</h2>
+    <div id="status">Initializing...</div>
+    <script src="exploit.js"></script>
+    <script>
+        // This would trigger your exploit
+        window.onload = function() {
+            try {
+                startExploit();
+            } catch(e) {
+                document.getElementById('status').innerHTML = 'Failed: ' + e.message;
+            }
+        }
+    </script>
+</body>
 </html>
