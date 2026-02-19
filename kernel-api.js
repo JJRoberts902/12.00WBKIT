@@ -57,7 +57,17 @@ class KernelAPI {
     console.log(`[KernelAPI] kread64(0x${address.toString(16)})`);
     return 0n;
   }
+// Add after constructor:
+kwriteUser(addr, data) {
+    console.log(`[KernelAPI] kwriteUser(0x${addr.toString(16)}, ${data.length} bytes)`);
+    return true;  // Sim success
+}
 
+// Fix kwriteKernel logging:
+kwriteKernel(addr, dataUint8Array) {
+    log(`🔥 Writing ${dataUint8Array.length} bytes to 0x${addr.toString(16)}`, 'success');
+    // Your existing chunk logic...
+}
   // Kernel write primitives logging
   kwrite8(address, value) {
     console.log(`[KernelAPI] kwrite8(0x${address.toString(16)}, 0x${value.toString(16)})`);
@@ -96,3 +106,4 @@ class KernelAPI {
     this.allproc = address;
   }
 }
+
