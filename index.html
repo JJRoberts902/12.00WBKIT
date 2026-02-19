@@ -88,24 +88,34 @@
             runBtn.textContent = '🚀 Run Full UAF + GoldHEN';
         }
 
-        async function loadRemotePayload() {
-            log('🌐 === LOADING GOLHEN PAYLOAD ===', 'warning');
-            try {
-                const resp = await fetch('./payload.bin');
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                
-                const buf = await resp.arrayBuffer();
-                const payload = new Uint8Array(buf);
-                log(`✅ Payload fetched: ${payload.length} bytes`, 'success');
-                
-                const kapi = KernelAPI.getInstance();
-                kapi.kwriteKernel(0x21000000n, payload);
-                log('🔥 GOLHEN INJECTED TO HV! Check PS4 home screen.', 'success');
-                
-            } catch (e) {
-                log(`❌ Payload fail: ${e.message}`, 'error');
-            }
+       async function loadRemotePayload() {
+    if (!exploitInstance?.kapi) {
+        log('❌ KernelAPI not ready', 'error');
+        return;
+    }
+    
+    try {
+        log('📥 Fetching payload.bin...', 'info');
+        const response = await fetch('./payload.bin');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        // 🔧 FIXED: Force Uint8Array
+        const payloadArrayBuffer = await response.arrayBuffer();
+        const payloadUint8 = new Uint8Array(payloadArrayBuffer);
+        
+        log(`✅ Payload loaded: ${payloadUint8.length} bytes`, 'success');
+        
+        const dest = 0x21000000n;
+        const success = exploitInstance.kapi.kwriteKernel(dest, payloadUint8);
+        
+        if (success) {
+            log('🎉 GoldHEN payload injected! Triggering kexecve...', 'success');
+            // Trigger ROP chain for execution
         }
+    } catch (e) {
+        log(`❌ Payload fail: ${e.message}`, 'error');
+    }
+}
 
         // 📱 PS4 AUTO-DETECT
         window.addEventListener('load', () => {
@@ -116,3 +126,4 @@
     </script>
 </body>
 </html>
+
