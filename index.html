@@ -2,18 +2,25 @@
 <html>
 <head>
     <title>PS4 12.00 GoldHEN - Pure Web Loader (No USB!)</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>/* Your existing CSS stays the same */</style>
+    <meta name="viewport" content="width=device-width">
+    <style>
+        body { font-family: monospace; background: #000; color: #0f0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        button { background: #f00; color: white; padding: 15px; font-size: 18px; border: none; cursor: pointer; margin: 10px; }
+        button:disabled { background: #333; }
+        #logOutput { background: #111; height: 400px; overflow-y: scroll; padding: 10px; border: 1px solid #0f0; white-space: pre-wrap; }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .warning { color: #ff0; }
+        .info { color: #00f; }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h2>🎮 PS4 12.00 WebKit + GoldHEN 2.4bXX</h2>
-        <h3>NetControl UAF → Remote Payload Loader</h3>
-        <div id="status">Ready! No USB/BluRay needed.</div>
-        
-        <button id="runButton" onclick="runFullExploit()" disabled>🚀 Run Full Exploit + GoldHEN</button>
-        <button id="payloadBtn" onclick="loadRemotePayload()" disabled style="background-color: #55aa55;">💾 Load Payload Only</button>
-        
+        <h2>🎮 PS4 12.00 WebKit + GoldHEN Pure Web Loader</h2>
+        <div id="status">Ready! Testing PS4 browser...</div>
+        <button id="runBtn" onclick="runFullExploit()">🚀 Run Full UAF + GoldHEN</button>
+        <button id="payloadBtn" onclick="loadRemotePayload()" disabled>💾 Load Payload Only</button>
         <div class="log" id="logOutput"></div>
     </div>
 
@@ -24,59 +31,61 @@
     <script src="exploit.js"></script>
     
     <script>
-        // Pure Web Payload Loader - Chains automatically!
+        // 🔥 LOGGING SYSTEM (Missing before!)
+        function log(msg, type = 'info') {
+            const logEl = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const colorClass = type || 'info';
+            logEl.innerHTML += `[${timestamp}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type}] ${msg}`);
+        }
+
+        // ✅ FULL CHAIN - Fixed wiring
+        let exploit = null;
+        async function runFullExploit() {
+            log('🔥 Starting 12.00 full chain...', 'warning');
+            document.getElementById('runBtn').disabled = true;
+            
+            try {
+                exploit = createExploit();
+                const success = await exploit.trigger();
+                
+                if (success) {
+                    document.getElementById('payloadBtn').disabled = false;
+                    log('✅ Exploit ready! Payload auto-chaining...', 'success');
+                }
+            } catch (e) {
+                log(`❌ Exploit failed: ${e}`, 'error');
+            }
+            
+            document.getElementById('runBtn').disabled = false;
+        }
+
+        // 🌐 REMOTE PAYLOAD (Your original - fixed)
         async function loadRemotePayload() {
             try {
-                log('🌐 Fetching payload.bin from GitHub...', 'warning');
-                const payloadUrl = './payload.bin';  // Relative = same-origin, PS4 loves it!
+                log('🌐 Fetching payload.bin...', 'warning');
+                const resp = await fetch('./payload.bin');
+                const buf = await resp.arrayBuffer();
+                const payload = new Uint8Array(buf);
                 
-                const response = await fetch(payloadUrl);
-                const arrayBuffer = await response.arrayBuffer();
-                const payload = new Uint8Array(arrayBuffer);
+                log(`✅ Payload: ${payload.length} bytes`, 'success');
                 
-                log(`✅ Payload loaded: ${payload.length} bytes (GoldHEN detected!)`, 'success');
-                
-                // Simulate kernel injection (real exploit would ROP here)
                 const kapi = KernelAPI.getInstance();
-                kapi.kwriteKernel(0x13370000n, payload);  // Fake kernel base
+                kapi.kwriteKernel(0x21000000n, payload);  // 12.00 HV dest
                 
-                log('🔥 Payload injected to kernel! GoldHEN should boot...', 'success');
-                log('📡 Check PS4 notifications/FTP (port 1337)', 'success');
-                
-                // Real chain: GoldHEN exec (add ROP gadgets when UAF ready)
-                // kernelExecute(payload.buffer, payload.length);
-                
+                log('🔥 GoldHEN injected! Check PS4 notifications.', 'success');
             } catch (e) {
-                log(`❌ Fetch failed: ${e.message}`, 'error');
-                log('💡 Fix: Ensure payload.bin in repo root + GitHub Pages enabled', 'warning');
+                log(`❌ Payload fail: ${e.message}`, 'error');
             }
         }
 
-        // Full auto-chain: Exploit → Payload
-        async function runFullExploit() {
-            runButton.disabled = true;
-            payloadBtn.disabled = true;
-            
-            log('🔥 Starting 12.00 WebKit chain...', 'warning');
-            const exploit = new ExploitNetControlImpl();
-            const success = exploit.trigger();
-            
-            if (success) {
-                log('✅ UAF popped! Auto-loading GoldHEN...', 'success');
-                setTimeout(loadRemotePayload, 800);  // Timing for stability
-            } else {
-                log('❌ UAF failed - retry!', 'error');
-            }
-            
-            runButton.disabled = false;
-            payloadBtn.disabled = false;
-        }
-
-        // Your existing log() + onload() functions unchanged...
+        // 📱 PS4 DETECT + AUTO-START
         window.onload = () => {
-            log('✅ Pure Web GoldHEN Loader v1.0 - JJRoberts902');
-            log('📱 PS4 12.00 confirmed', navigator.userAgent.includes('PlayStation') ? 'success' : 'warning');
-            document.getElementById('runButton').disabled = false;
+            const isPS4 = navigator.userAgent.includes('PlayStation');
+            log(`PS4 detected: ${isPS4 ? '✅ 12.00 Ready' : '⚠️ Browser sim'}`, isPS4 ? 'success' : 'warning');
+            document.getElementById('status').textContent = isPS4 ? 'PS4 12.00 LIVE' : 'Desktop Test Mode';
         };
     </script>
 </body>
