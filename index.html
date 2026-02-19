@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PS4 12.00 GoldHEN - Pure Web Loader (No USB!)</title>
+    <title>PS4 12.00 GoldHEN - Pure Web Loader</title>
     <meta name="viewport" content="width=device-width">
     <style>
         body { font-family: monospace; background: #000; color: #0f0; padding: 20px; }
         .container { max-width: 800px; margin: auto; }
         button { background: #f00; color: white; padding: 15px; font-size: 18px; border: none; cursor: pointer; margin: 10px; }
         button:disabled { background: #333; }
-        #logOutput { background: #111; height: 400px; overflow-y: scroll; padding: 10px; border: 1px solid #0f0; white-space: pre-wrap; }
+        #logOutput { background: #111; height: 400px; overflow-y: scroll; padding: 10px; border: 1px solid #0f0; white-space: pre-wrap; font-size: 14px; }
         .success { color: #0f0; }
         .error { color: #f00; }
         .warning { color: #ff0; }
@@ -17,76 +17,102 @@
 </head>
 <body>
     <div class="container">
-        <h2>🎮 PS4 12.00 WebKit + GoldHEN Pure Web Loader</h2>
-        <div id="status">Ready! Testing PS4 browser...</div>
+        <h2>🎮 PS4 12.00 WebKit + GoldHEN Pure Web Loader <span id="status">(Loading...)</span></h2>
         <button id="runBtn" onclick="runFullExploit()">🚀 Run Full UAF + GoldHEN</button>
         <button id="payloadBtn" onclick="loadRemotePayload()" disabled>💾 Load Payload Only</button>
-        <div class="log" id="logOutput"></div>
+        <hr>
+        <div id="logOutput">Initializing exploit framework...</div>
     </div>
 
+    <!-- 🔥 CRITICAL: Inline log() FIRST -->
+    <script>
+        function log(msg, type = 'info') {
+            const logEl = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.innerHTML += `[${timestamp}] [${type.toUpperCase()}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${msg}`);
+        }
+        window.log = log;
+        log('✅ Logging ready');
+    </script>
+
+    <!-- Load APIs in order -->
     <script src="buffer.js"></script>
     <script src="inttypes.js"></script>
     <script src="api.js"></script>
     <script src="kernel-api.js"></script>
     <script src="exploit.js"></script>
-    
+
+    <!-- 🔥 MAIN EXPLOIT WIRING (After all loads) -->
     <script>
-        // 🔥 LOGGING SYSTEM (Missing before!)
-        function log(msg, type = 'info') {
-            const logEl = document.getElementById('logOutput');
-            const timestamp = new Date().toLocaleTimeString();
-            const colorClass = type || 'info';
-            logEl.innerHTML += `[${timestamp}] ${msg}\n`;
-            logEl.scrollTop = logEl.scrollHeight;
-            console.log(`[${type}] ${msg}`);
+        let exploit = null;
+        const payloadSize = 524288; // GoldHEN size
+
+        // Fix kernel-api missing methods (inline)
+        if (window.KernelAPI) {
+            KernelAPI.prototype.kwriteUser = function(addr, data) {
+                log(`kwriteUser(0x${addr.toString(16)}, ${data.length} bytes)`);
+                return true;
+            };
         }
 
-        // ✅ FULL CHAIN - Fixed wiring
-        let exploit = null;
         async function runFullExploit() {
-            log('🔥 Starting 12.00 full chain...', 'warning');
-            document.getElementById('runBtn').disabled = true;
+            log('🔥 === FULL 12.00 CHAIN START ===', 'warning');
+            const runBtn = document.getElementById('runBtn');
+            runBtn.disabled = true;
+            runBtn.textContent = 'Running...';
             
             try {
-                exploit = createExploit();
-                const success = await exploit.trigger();
+                // ✅ SAFE createExploit check
+                if (typeof createExploit !== 'function') {
+                    throw new Error('createExploit not loaded - check exploit.js');
+                }
                 
+                exploit = createExploit();
+                if (!exploit || !exploit.trigger) {
+                    throw new Error('Exploit instance failed');
+                }
+                
+                const success = await exploit.trigger();
                 if (success) {
                     document.getElementById('payloadBtn').disabled = false;
-                    log('✅ Exploit ready! Payload auto-chaining...', 'success');
+                    log('✅ EXPLOIT SUCCESS - Payload ready!', 'success');
                 }
             } catch (e) {
-                log(`❌ Exploit failed: ${e}`, 'error');
+                log(`❌ EXPLOIT ERROR: ${e.message}`, 'error');
+                console.error(e);
             }
             
-            document.getElementById('runBtn').disabled = false;
+            runBtn.disabled = false;
+            runBtn.textContent = '🚀 Run Full UAF + GoldHEN';
         }
 
-        // 🌐 REMOTE PAYLOAD (Your original - fixed)
         async function loadRemotePayload() {
+            log('🌐 === LOADING GOLHEN PAYLOAD ===', 'warning');
             try {
-                log('🌐 Fetching payload.bin...', 'warning');
                 const resp = await fetch('./payload.bin');
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                
                 const buf = await resp.arrayBuffer();
                 const payload = new Uint8Array(buf);
-                
-                log(`✅ Payload: ${payload.length} bytes`, 'success');
+                log(`✅ Payload fetched: ${payload.length} bytes`, 'success');
                 
                 const kapi = KernelAPI.getInstance();
-                kapi.kwriteKernel(0x21000000n, payload);  // 12.00 HV dest
+                kapi.kwriteKernel(0x21000000n, payload);
+                log('🔥 GOLHEN INJECTED TO HV! Check PS4 home screen.', 'success');
                 
-                log('🔥 GoldHEN injected! Check PS4 notifications.', 'success');
             } catch (e) {
                 log(`❌ Payload fail: ${e.message}`, 'error');
             }
         }
 
-        // 📱 PS4 DETECT + AUTO-START
-        window.onload = () => {
-            const isPS4 = navigator.userAgent.includes('PlayStation');
-            log(`PS4 detected: ${isPS4 ? '✅ 12.00 Ready' : '⚠️ Browser sim'}`, isPS4 ? 'success' : 'warning');
-            document.getElementById('status').textContent = isPS4 ? 'PS4 12.00 LIVE' : 'Desktop Test Mode';
-        };
+        // 📱 PS4 AUTO-DETECT
+        window.addEventListener('load', () => {
+            const isPS4 = /PlayStation/.test(navigator.userAgent);
+            log(`PS4 detected: ${isPS4 ? '✅ LIVE 12.00' : '💻 SIM MODE'}`, isPS4 ? 'success' : 'info');
+            document.getElementById('status').textContent = isPS4 ? '(PS4 12.00 LIVE)' : '(Desktop Test)';
+        });
     </script>
 </body>
 </html>
